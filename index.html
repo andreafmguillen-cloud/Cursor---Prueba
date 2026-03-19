@@ -19,7 +19,7 @@
       --shadow: 0 20px 65px rgba(0, 0, 0, 0.55);
       --radius-lg: 28px;
       --radius-md: 18px;
-      --blur: blur(10px);
+      --blur: blur(12px);
     }
 
     * {
@@ -88,7 +88,7 @@
       mask-image: radial-gradient(circle at center, black 48%, transparent 92%);
       opacity: 0.18;
       z-index: 0;
-      animation: none;
+      animation: pulseGrid 24s ease-in-out infinite;
       pointer-events: none;
     }
 
@@ -129,6 +129,13 @@
       transform: translateY(-20px);
       opacity: 0;
       animation: revealTop 1s ease forwards;
+      transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .nav.scrolled {
+      background: rgba(10, 12, 25, 0.82);
+      border-color: rgba(125, 252, 255, 0.26);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42), 0 0 20px rgba(125, 252, 255, 0.14);
     }
 
     .logo {
@@ -223,7 +230,7 @@
       border-radius: var(--radius-lg);
       border: 1px solid rgba(255, 255, 255, 0.12);
       background: linear-gradient(145deg, rgba(18, 23, 52, 0.75), rgba(20, 9, 42, 0.62));
-      backdrop-filter: blur(8px);
+      backdrop-filter: var(--blur);
       box-shadow: var(--shadow);
       transform: rotateX(6deg) rotateY(-4deg) scale(0.97);
       opacity: 0;
@@ -240,9 +247,14 @@
       background: conic-gradient(from 160deg, rgba(169, 123, 255, 0.22), rgba(125, 252, 255, 0.12), rgba(240, 201, 119, 0.25), rgba(169, 123, 255, 0.22));
       top: -20%;
       left: -20%;
-      filter: blur(12px);
-      animation: spinGlow 18s linear infinite;
+      filter: blur(18px);
+      animation: spinGlow 12s linear infinite;
       pointer-events: none;
+    }
+
+    .hero-panel.interactive {
+      transition: transform 0.2s ease-out;
+      will-change: transform;
     }
 
     @keyframes spinGlow {
@@ -948,6 +960,22 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const nav = document.querySelector(".nav");
+      if (nav) {
+        let ticking = false;
+        const updateNavState = () => {
+          nav.classList.toggle("scrolled", window.scrollY > 20);
+          ticking = false;
+        };
+        window.addEventListener("scroll", () => {
+          if (!ticking) {
+            ticking = true;
+            requestAnimationFrame(updateNavState);
+          }
+        });
+        updateNavState();
+      }
+
       const toast = document.getElementById("toast");
       let toastTimer = null;
 
@@ -1039,14 +1067,22 @@
       const heroPanel = document.querySelector(".hero-panel");
       const canMatchMedia = typeof window.matchMedia === "function";
       const reduceMotion = canMatchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (heroPanel && !reduceMotion) {
+      const finePointer = canMatchMedia && window.matchMedia("(pointer: fine)").matches;
+      if (heroPanel && !reduceMotion && finePointer) {
         let panelRect = heroPanel.getBoundingClientRect();
         let rafId = null;
         let nextX = 0;
         let nextY = 0;
+        let interactiveReady = false;
+
+        setTimeout(() => {
+          interactiveReady = true;
+          heroPanel.classList.add("interactive");
+        }, 1200);
 
         function updatePanel() {
           rafId = null;
+          if (!interactiveReady) return;
           if (!panelRect.width || !panelRect.height) return;
           const rotateY = ((nextX / panelRect.width) - 0.5) * 6;
           const rotateX = ((nextY / panelRect.height) - 0.5) * -4;
@@ -1062,6 +1098,7 @@
         });
 
         heroPanel.addEventListener("mousemove", (event) => {
+          if (!interactiveReady) return;
           nextX = event.clientX - panelRect.left;
           nextY = event.clientY - panelRect.top;
           if (!rafId) {
