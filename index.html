@@ -947,103 +947,133 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const revealItems = document.querySelectorAll(".reveal");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("show");
-            observer.unobserve(entry.target);
+    document.addEventListener("DOMContentLoaded", () => {
+      const toast = document.getElementById("toast");
+      let toastTimer = null;
+
+      function showToast(message) {
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 1600);
+      }
+
+      if ("IntersectionObserver" in window) {
+        const revealItems = document.querySelectorAll(".reveal");
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("show");
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.18 }
+        );
+        revealItems.forEach((item) => observer.observe(item));
+      } else {
+        document.querySelectorAll(".reveal").forEach((item) => item.classList.add("show"));
+      }
+
+      document.querySelectorAll("[data-scroll]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const selector = button.dataset.scroll;
+          if (!selector) return;
+          const target = document.querySelector(selector);
+          if (!target) return;
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+
+      document.querySelectorAll("[data-toast]").forEach((button) => {
+        button.addEventListener("click", () => {
+          showToast(button.dataset.toast || "Accion completada.");
+        });
+      });
+
+      const leadForm = document.getElementById("lead-form");
+      const formStatus = document.getElementById("form-status");
+      if (leadForm && formStatus) {
+        leadForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const nameInput = document.getElementById("name");
+          const emailInput = document.getElementById("email");
+          const messageInput = document.getElementById("message");
+          const name = nameInput ? nameInput.value.trim() : "";
+          const email = emailInput ? emailInput.value.trim() : "";
+          const message = messageInput ? messageInput.value.trim() : "";
+
+          if (!name || !email || !message) {
+            formStatus.textContent = "Completa todos los campos para continuar.";
+            formStatus.style.color = "#ffd3d3";
+            return;
+          }
+
+          const lead = { name, email, message, createdAt: new Date().toISOString() };
+          let current = [];
+          try {
+            current = JSON.parse(localStorage.getItem("atlasLeads") || "[]");
+            if (!Array.isArray(current)) current = [];
+          } catch (error) {
+            current = [];
+          }
+
+          current.push(lead);
+          try {
+            localStorage.setItem("atlasLeads", JSON.stringify(current));
+          } catch (error) {
+            // Demo mode continues even if storage is unavailable.
+          }
+
+          formStatus.textContent = "Solicitud enviada con exito. Te contactaremos pronto.";
+          formStatus.style.color = "#a4ffd0";
+          leadForm.reset();
+          showToast("Lead guardado en modo demo.");
+        });
+      }
+
+      const heroPanel = document.querySelector(".hero-panel");
+      const canMatchMedia = typeof window.matchMedia === "function";
+      const reduceMotion = canMatchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (heroPanel && !reduceMotion) {
+        let panelRect = heroPanel.getBoundingClientRect();
+        let rafId = null;
+        let nextX = 0;
+        let nextY = 0;
+
+        function updatePanel() {
+          rafId = null;
+          if (!panelRect.width || !panelRect.height) return;
+          const rotateY = ((nextX / panelRect.width) - 0.5) * 6;
+          const rotateX = ((nextY / panelRect.height) - 0.5) * -4;
+          heroPanel.style.transform = "rotateX(" + rotateX + "deg) rotateY(" + rotateY + "deg) scale(1)";
+        }
+
+        heroPanel.addEventListener("mouseenter", () => {
+          panelRect = heroPanel.getBoundingClientRect();
+        });
+
+        window.addEventListener("resize", () => {
+          panelRect = heroPanel.getBoundingClientRect();
+        });
+
+        heroPanel.addEventListener("mousemove", (event) => {
+          nextX = event.clientX - panelRect.left;
+          nextY = event.clientY - panelRect.top;
+          if (!rafId) {
+            rafId = requestAnimationFrame(updatePanel);
           }
         });
-      },
-      { threshold: 0.18 }
-    );
-    revealItems.forEach((item) => observer.observe(item));
 
-    const toast = document.getElementById("toast");
-    let toastTimer = null;
-    function showToast(message) {
-      toast.textContent = message;
-      toast.classList.add("show");
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        toast.classList.remove("show");
-      }, 1600);
-    }
-
-    document.querySelectorAll("[data-scroll]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const target = document.querySelector(button.dataset.scroll);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-    });
-
-    document.querySelectorAll("[data-toast]").forEach((button) => {
-      button.addEventListener("click", () => {
-        showToast(button.dataset.toast);
-      });
-    });
-
-    const leadForm = document.getElementById("lead-form");
-    const formStatus = document.getElementById("form-status");
-    leadForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const message = document.getElementById("message").value.trim();
-      if (!name || !email || !message) {
-        formStatus.textContent = "Completa todos los campos para continuar.";
-        formStatus.style.color = "#ffd3d3";
-        return;
+        heroPanel.addEventListener("mouseleave", () => {
+          heroPanel.style.transform = "rotateX(0deg) rotateY(0deg) scale(1)";
+        });
       }
-      const lead = { name, email, message, createdAt: new Date().toISOString() };
-      const current = JSON.parse(localStorage.getItem("atlasLeads") || "[]");
-      current.push(lead);
-      localStorage.setItem("atlasLeads", JSON.stringify(current));
-      formStatus.textContent = "Solicitud enviada con éxito. Te contactaremos pronto.";
-      formStatus.style.color = "#a4ffd0";
-      leadForm.reset();
-      showToast("Lead guardado en modo demo.");
     });
-
-    const heroPanel = document.querySelector(".hero-panel");
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (heroPanel && !reduceMotion) {
-      let panelRect = heroPanel.getBoundingClientRect();
-      let rafId = null;
-      let nextX = 0;
-      let nextY = 0;
-
-      function updatePanel() {
-        rafId = null;
-        const rotateY = ((nextX / panelRect.width) - 0.5) * 6;
-        const rotateX = ((nextY / panelRect.height) - 0.5) * -4;
-        heroPanel.style.transform = "rotateX(" + rotateX + "deg) rotateY(" + rotateY + "deg) scale(1)";
-      }
-
-      heroPanel.addEventListener("mouseenter", () => {
-        panelRect = heroPanel.getBoundingClientRect();
-      });
-
-      window.addEventListener("resize", () => {
-        panelRect = heroPanel.getBoundingClientRect();
-      });
-
-      heroPanel.addEventListener("mousemove", (event) => {
-        nextX = event.clientX - panelRect.left;
-        nextY = event.clientY - panelRect.top;
-        if (!rafId) {
-          rafId = requestAnimationFrame(updatePanel);
-        }
-      });
-
-      heroPanel.addEventListener("mouseleave", () => {
-        heroPanel.style.transform = "rotateX(0deg) rotateY(0deg) scale(1)";
-      });
-    }
   </script>
 </body>
 </html>
